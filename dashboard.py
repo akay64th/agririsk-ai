@@ -55,6 +55,98 @@ st.markdown("""
 
 CSV_PATH = "us_agri_support_agentic_dataset.csv"
 
+def generate_data():
+    """Generate dataset inline if CSV not found."""
+    import numpy as np
+    import random
+    random.seed(42)
+    np.random.seed(42)
+
+    CONFIGS = {
+        "Heartland":             {"states":["IL","IN","IA","MO","OH"],"n":1350,"d":(0.20,0.08),"sm":(0.58,0.07),"nv":(0.70,0.06),"t":(72,8),"rp":(0.85,0.07),"df":0.08,"dl":(2,2),"pl":(2,3),"crops":["Corn","Soybeans","Hogs","Wheat"],"code":"HRT"},
+        "Northern Crescent":     {"states":["CT","ME","MA","MI","NH","NJ","NY","PA","RI","VT","WI","ND","SD","MN"],"n":900,"d":(0.18,0.07),"sm":(0.62,0.06),"nv":(0.72,0.05),"t":(63,9),"rp":(0.88,0.06),"df":0.06,"dl":(1,2),"pl":(2,3),"crops":["Dairy","Corn","Soybeans","Wheat","Apples"],"code":"NCR"},
+        "Northern Great Plains": {"states":["KS","NE","ND","SD","MT","MN"],"n":350,"d":(0.58,0.10),"sm":(0.28,0.08),"nv":(0.40,0.07),"t":(84,10),"rp":(0.50,0.09),"df":0.35,"dl":(16,6),"pl":(10,6),"crops":["Wheat","Corn","Soybeans","Cattle","Barley"],"code":"NGP"},
+        "Prairie Gateway":       {"states":["OK","TX","KS","NE","CO","NM"],"n":850,"d":(0.75,0.09),"sm":(0.14,0.07),"nv":(0.22,0.06),"t":(95,9),"rp":(0.34,0.08),"df":0.55,"dl":(26,7),"pl":(16,7),"crops":["Cotton","Wheat","Cattle","Sorghum","Corn"],"code":"PGW"},
+        "Eastern Uplands":       {"states":["KY","NC","TN","VA","WV","AR"],"n":700,"d":(0.42,0.09),"sm":(0.40,0.07),"nv":(0.52,0.06),"t":(78,8),"rp":(0.66,0.08),"df":0.22,"dl":(9,4),"pl":(5,4),"crops":["Tobacco","Corn","Soybeans","Cattle","Poultry"],"code":"EUP"},
+        "Southern Seaboard":     {"states":["AL","FL","GA","SC","NC","VA","MD","DE"],"n":800,"d":(0.50,0.10),"sm":(0.32,0.08),"nv":(0.46,0.07),"t":(86,8),"rp":(0.58,0.08),"df":0.30,"dl":(13,5),"pl":(7,5),"crops":["Cotton","Peanuts","Soybeans","Poultry","Vegetables"],"code":"SSB"},
+        "Fruitful Rim":          {"states":["AZ","CA","ID","MT","NV","OR","UT","WA"],"n":500,"d":(0.45,0.10),"sm":(0.38,0.08),"nv":(0.50,0.07),"t":(72,10),"rp":(0.72,0.08),"df":0.18,"dl":(7,4),"pl":(4,4),"crops":["Vegetables","Fruits","Wine Grapes","Nuts","Dairy"],"code":"FRM"},
+        "Basin and Range":       {"states":["AZ","CO","ID","MT","NV","NM","UT","WY"],"n":650,"d":(0.76,0.09),"sm":(0.12,0.07),"nv":(0.16,0.06),"t":(100,10),"rp":(0.30,0.08),"df":0.58,"dl":(30,8),"pl":(20,7),"crops":["Wheat","Cattle","Hay","Potatoes","Sheep"],"code":"BNR"},
+        "Mississippi Portal":    {"states":["AR","LA","MS","MO","TN"],"n":400,"d":(0.36,0.08),"sm":(0.48,0.07),"nv":(0.60,0.06),"t":(82,7),"rp":(0.74,0.07),"df":0.17,"dl":(6,3),"pl":(3,3),"crops":["Rice","Cotton","Soybeans","Corn","Catfish"],"code":"MSP"},
+    }
+
+    rows = []
+    pid = 1
+    for region, c in CONFIGS.items():
+        for _ in range(c["n"]):
+            state   = random.choice(c["states"])
+            drought = float(np.clip(np.random.normal(c["d"][0], c["d"][1]), 0.05, 0.98))
+            sm      = float(np.clip(np.random.normal(c["sm"][0], c["sm"][1]), 0.05, 0.95))
+            ndvi    = float(np.clip(np.random.normal(c["nv"][0], c["nv"][1]), 0.05, 0.98))
+            temp    = float(np.clip(np.random.normal(c["t"][0], c["t"][1]), 15, 115))
+            repay   = float(np.clip(np.random.normal(c["rp"][0], c["rp"][1]), 0.05, 1.0))
+            prior_d = int(np.random.binomial(1, c["df"]))
+            s_delay = int(np.clip(np.random.normal(c["dl"][0], c["dl"][1]), 0, 60))
+            f_delay = int(np.clip(np.random.normal(c["dl"][0], c["dl"][1]) + 2, 0, 65))
+            pl_del  = int(np.clip(np.random.normal(c["pl"][0], c["pl"][1]), 0, 69))
+            crop    = random.choice(c["crops"])
+
+            yield_rs = round(float(np.clip(drought*0.30+(1-ndvi)*0.20+(1-sm)*0.15+(1-repay)*0.20+prior_d*0.15, 0, 1)), 3)
+            repay_rs = round(float(np.clip((1-repay)*0.45+prior_d*0.25+(1-repay)*0.20+min(1,s_delay/60)*0.10, 0, 1)), 3)
+            urgency  = round(float(np.clip(yield_rs*0.45+repay_rs*0.35+min(1,s_delay/30)*0.10+min(1,pl_del/14)*0.10, 0, 1)), 3)
+
+            if urgency >= 0.60:   tier = "immediate_intervention"
+            elif urgency >= 0.42: tier = "priority_deployment"
+            elif urgency >= 0.25: tier = "active_monitoring"
+            else:                 tier = "routine_monitoring"
+
+            y_band = "high" if yield_rs >= 0.55 else "medium" if yield_rs >= 0.30 else "low"
+            r_band = "high" if repay_rs >= 0.55 else "medium" if repay_rs >= 0.30 else "low"
+
+            if tier == "immediate_intervention":   action = "emergency_input_dispatch"
+            elif tier == "priority_deployment":    action = "planting_support" if pl_del > 5 else "drought_advisory"
+            elif drought > 0.55:                   action = "drought_advisory"
+            else:                                  action = "monitor_only"
+
+            rows.append({
+                "producer_id": f"PRD{pid:06d}",
+                "season": "2024-25",
+                "usda_farm_resource_region": region,
+                "usda_region_code": c["code"],
+                "state": state,
+                "primary_crop": crop,
+                "farm_size_acres": round(float(np.clip(np.random.lognormal(6,1.2), 0.3, 54994)), 1),
+                "drought_index": round(drought, 3),
+                "soil_moisture_index": round(sm, 3),
+                "ndvi": round(ndvi, 3),
+                "avg_temperature_f": round(temp, 1),
+                "repayment_rate": round(repay, 3),
+                "prior_default_flag": prior_d,
+                "seed_delivery_delay_days": s_delay,
+                "fertilizer_delivery_delay_days": f_delay,
+                "planting_delay_days": pl_del,
+                "soil_ph": round(float(np.clip(6.5+(drought-0.5)*2.5+np.random.normal(0,0.4), 4.0, 9.1)), 2),
+                "soil_organic_matter_pct": round(float(np.clip(4-drought*3+random.uniform(0,1.5), 0.5, 8.0)), 2),
+                "yield_volatility_index": round(float(np.clip(drought*0.6+random.uniform(0,0.25), 0.05, 0.95)), 3),
+                "pest_pressure_flag": int(np.random.binomial(1, min(0.85, drought*0.5+0.15))),
+                "seasonal_rainfall_inches": round(float(np.clip(60*(1-drought)+np.random.normal(0,5), 2, 80)), 2),
+                "input_credit_amount_usd": round(float(np.clip(random.uniform(40,350)*random.uniform(100,10000), 0, 17900000)), 0),
+                "extension_visit_count": int(np.clip(int(np.random.poisson(2+(1-repay)*3)), 0, 12)),
+                "support_gap_flag": int(random.random() > repay),
+                "approval_required": int(tier in ("immediate_intervention","priority_deployment")),
+                "yield_risk_score": yield_rs,
+                "repayment_risk_score": repay_rs,
+                "intervention_urgency_score": urgency,
+                "yield_risk_band": y_band,
+                "repayment_risk_band": r_band,
+                "intervention_priority_tier": tier,
+                "recommended_action": action,
+                "explanation_summary": "Drivers: drought=" + str(round(drought,2)) + ", repayment=" + str(round(repay,2)),
+                "action_rationale": "Urgency=" + str(urgency) + " based on yield and repayment risk.",
+            })
+            pid += 1
+
+    return pd.DataFrame(rows)
+
 REGION_COLORS = {
     "Heartland":             "#ffd54f",
     "Northern Crescent":     "#4fc3f7",
@@ -78,10 +170,15 @@ TIER_LABELS = {
 
 @st.cache_data
 def load_data():
-    if not os.path.exists(CSV_PATH):
-        return None, None, "2024-25"
+    if os.path.exists(CSV_PATH):
+        try:
+            df = pd.read_csv(CSV_PATH)
+        except Exception:
+            df = generate_data()
+    else:
+        df = generate_data()
 
-    df = pd.read_csv(CSV_PATH)
+    season = df["season"].mode()[0] if "season" in df.columns else "2024-25"
     season = df["season"].mode()[0] if "season" in df.columns else "2024-25"
 
     grp = df.groupby("usda_farm_resource_region").agg(
@@ -141,7 +238,7 @@ def load_data():
 regions_df, raw_df, SEASON = load_data()
 
 if regions_df is None or len(regions_df) == 0:
-    st.error("CSV not found. Make sure us_agri_support_agentic_dataset.csv is in your GitHub repo.")
+    st.error("No data available. Please check the app logs.")
     st.stop()
 
 # ── Header ────────────────────────────────────────────────────
